@@ -27,3 +27,11 @@ class ProductOut(ProductBase):
 
     class Config:
         orm_mode = True
+
+class ProductListResponse(BaseModel):
+    page: int
+    limit: int
+    total: int
+    pages: int
+    items: List[ProductOut]
+

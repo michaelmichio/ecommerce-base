@@ -1,25 +1,86 @@
 import os
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import asc, desc, or_
 from uuid import UUID, uuid4
 from typing import List
 
 from app.core.database import get_db
 from app.models.product import Product
-from app.schemas.product import ProductCreate, ProductOut, ProductUpdate
+from app.schemas.product import ProductCreate, ProductOut, ProductUpdate, ProductListResponse
 from app.core.dependencies import get_current_user
 from app.core.rbac import require_role
 from app.models.user import User
 from app.api.routes.upload import UPLOAD_DIR
 from app.core.utils import delete_file_safe
+from app.schemas.search import ProductSearchRequest
+from app.core.advanced_query import apply_filters, apply_search, apply_sort
 
 router = APIRouter(prefix="/products", tags=["products"])
 
+@router.post("/search", response_model=ProductListResponse)
+def search_products(
+    body: ProductSearchRequest,
+    db: Session = Depends(get_db)
+):
+    query = db.query(Product)
+
+    # 🔍 Filtering
+    query = apply_filters(query, body.filters)
+
+    # 🔎 Search
+    query = apply_search(query, body.search)
+
+    # 🔢 Sorting
+    query = apply_sort(query, body.sort)
+
+    # 📄 Pagination
+    total = query.count()
+    products = query.offset((body.page - 1) * body.limit).limit(body.limit).all()
+
+    return {
+        "page": body.page,
+        "limit": body.limit,
+        "total": total,
+        "pages": (total + body.limit - 1) // body.limit,
+        "items": products,
+    }
+
 # 🟢 List all products
-@router.get("/", response_model=List[ProductOut])
-def list_products(db: Session = Depends(get_db)):
-    products = db.query(Product).order_by(Product.created_at.desc()).all()
-    return products
+@router.get("/", response_model=ProductListResponse)
+def list_products(
+    db: Session = Depends(get_db),
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+    sort: str = Query("created_desc", description="created_asc | created_desc | price_asc | price_desc")
+):
+    """
+    Simple public product listing (fast and cache-friendly)
+    """
+
+    query = db.query(Product)
+
+    # Sorting
+    if sort == "price_asc":
+        query = query.order_by(asc(Product.price))
+    elif sort == "price_desc":
+        query = query.order_by(desc(Product.price))
+    elif sort == "created_asc":
+        query = query.order_by(asc(Product.created_at))
+    else:
+        query = query.order_by(desc(Product.created_at))
+
+    # Pagination
+    total = query.count()
+    products = query.offset((page - 1) * limit).limit(limit).all()
+
+    return {
+        "page": page,
+        "limit": limit,
+        "total": total,
+        "pages": (total + limit - 1) // limit,
+        "items": products,
+    }
 
 # 🟢 Get product detail
 @router.get("/{product_id}", response_model=ProductOut)
