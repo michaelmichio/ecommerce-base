@@ -3,10 +3,7 @@ from sqlalchemy.orm import Session
 from app.core.database import SessionLocal, Base, engine
 from app.core.config import get_settings
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.routes import auth
-from app.api.routes import users
-from app.api.routes import admin
-from app.api.routes import products
+from app.api.routes import auth, users, admin, products, upload
 from app.core.seed import seed_roles
 
 seed_roles()
@@ -20,6 +17,7 @@ app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(admin.router)
 app.include_router(products.router)
+app.include_router(upload.router)
 
 # CORS
 if settings.BACKEND_CORS_ORIGINS:
