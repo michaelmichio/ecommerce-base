@@ -16,5 +16,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # App code
 COPY app /app/app
 
+RUN mkdir -p /app/app/storage/uploads
+
 # Uvicorn hot reload
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
