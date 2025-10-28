@@ -90,6 +90,7 @@ def delete_product(
                 # ✅ gunakan validasi path aman di sini juga
                 file_path = os.path.abspath(file_path)
                 if file_path.startswith(UPLOAD_DIR) and os.path.exists(file_path):
+                    print(f"Deleting file: {file_path}")
                     os.remove(file_path)
 
 
@@ -151,6 +152,7 @@ def delete_product_image(
         # ✅ pastikan path aman sebelum hapus
         file_path = os.path.abspath(file_path)
         if file_path.startswith(UPLOAD_DIR) and os.path.exists(file_path):
+            print(f"Deleting file: {file_path}")
             os.remove(file_path)
 
 
