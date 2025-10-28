@@ -19,14 +19,21 @@ class ProductCreate(ProductBase):
 class ProductUpdate(ProductBase):
     pass
 
-class ProductOut(ProductBase):
+class ProductOut(BaseModel):
     id: UUID
-    created_by_id: UUID
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    name: str
+    description: Optional[str]
+    category: Optional[str]
+    price: float
+    stock: Optional[int]
+    discount: Optional[float]
+    status: Optional[str]
+    images: Optional[List[str]]
+    created_at: Optional[datetime]
+    updated_at: Optional[datetime]
 
     class Config:
-        orm_mode = True
+        from_attributes = True  # ✅ penting agar bisa from_orm(Product)
 
 class ProductListResponse(BaseModel):
     page: int
