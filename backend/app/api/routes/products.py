@@ -15,6 +15,7 @@ from app.api.routes.upload import UPLOAD_DIR
 from app.core.utils import delete_file_safe
 from app.schemas.search import ProductSearchRequest
 from app.core.advanced_query import apply_filters, apply_search, apply_sort
+from app.schemas.response import ErrorResponse, SuccessResponse
 
 router = APIRouter(prefix="/products", tags=["products"])
 
@@ -47,7 +48,7 @@ def search_products(
     }
 
 # 🟢 List all products
-@router.get("/", response_model=ProductListResponse)
+@router.get("/", response_model=ProductListResponse, responses={500: {"model": ErrorResponse}})
 def list_products(
     db: Session = Depends(get_db),
     page: int = Query(1, ge=1),
@@ -83,7 +84,7 @@ def list_products(
     }
 
 # 🟢 Get product detail
-@router.get("/{product_id}", response_model=ProductOut)
+@router.get("/{product_id}", response_model=SuccessResponse)
 def get_product(product_id: UUID, db: Session = Depends(get_db)):
     product = db.query(Product).filter(Product.id == product_id).first()
     if not product:
@@ -91,7 +92,7 @@ def get_product(product_id: UUID, db: Session = Depends(get_db)):
     return product
 
 # 🔒 Create new product (admin only)
-@router.post("/", response_model=ProductOut)
+@router.post("/", response_model=SuccessResponse)
 def create_product(
     payload: ProductCreate,
     db: Session = Depends(get_db),
