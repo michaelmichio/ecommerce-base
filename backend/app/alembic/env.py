@@ -1,5 +1,5 @@
 from app.core.database import Base, engine
-from app.models import user, role
+from app.models import user, role, product
 from logging.config import fileConfig
 from sqlalchemy import engine_from_config, pool
 from alembic import context
