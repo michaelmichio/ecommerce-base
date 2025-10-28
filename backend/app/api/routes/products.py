@@ -1,14 +1,13 @@
 import os
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import asc, desc, or_
+from sqlalchemy import asc, desc
 from uuid import UUID, uuid4
 from typing import List
 
 from app.core.database import get_db
 from app.models.product import Product
-from app.schemas.product import ProductCreate, ProductOut, ProductUpdate, ProductListResponse
-from app.core.dependencies import get_current_user
+from app.schemas.product import ProductCreate, ProductUpdate, ProductOut
 from app.core.rbac import require_role
 from app.models.user import User
 from app.api.routes.upload import UPLOAD_DIR
@@ -19,103 +18,80 @@ from app.schemas.response import ErrorResponse, SuccessResponse
 
 router = APIRouter(prefix="/products", tags=["products"])
 
-@router.post("/search", response_model=ProductListResponse)
+# 🧠 helper agar kode rapi
+def success(data):
+    return {"success": True, "data": data}
+
+
+# 🟢 SEARCH (advanced)
+@router.post("/search", response_model=SuccessResponse)
 def search_products(
     body: ProductSearchRequest,
     db: Session = Depends(get_db)
 ):
     query = db.query(Product)
-
-    # 🔍 Filtering
     query = apply_filters(query, body.filters)
-
-    # 🔎 Search
     query = apply_search(query, body.search)
-
-    # 🔢 Sorting
     query = apply_sort(query, body.sort)
 
-    # 📄 Pagination
     total = query.count()
     products = query.offset((body.page - 1) * body.limit).limit(body.limit).all()
 
-    return {
+    return success({
         "page": body.page,
         "limit": body.limit,
         "total": total,
         "pages": (total + body.limit - 1) // body.limit,
         "items": products,
-    }
+    })
 
-# 🟢 List all products
-@router.get("/", response_model=ProductListResponse, responses={500: {"model": ErrorResponse}})
+
+# 🟢 LIST (simple public)
+@router.get("/", response_model=SuccessResponse)
 def list_products(
     db: Session = Depends(get_db),
-    page: int = Query(1, ge=1),
-    limit: int = Query(10, ge=1, le=100),
-    sort: str = Query("created_desc", description="created_asc | created_desc | price_asc | price_desc")
+    page: int = 1,
+    limit: int = 10,
+    sort: str = "created_desc"
 ):
-    """
-    Simple public product listing (fast and cache-friendly)
-    """
-
     query = db.query(Product)
-
-    # Sorting
-    if sort == "price_asc":
-        query = query.order_by(asc(Product.price))
-    elif sort == "price_desc":
-        query = query.order_by(desc(Product.price))
-    elif sort == "created_asc":
-        query = query.order_by(asc(Product.created_at))
-    else:
-        query = query.order_by(desc(Product.created_at))
-
-    # Pagination
     total = query.count()
     products = query.offset((page - 1) * limit).limit(limit).all()
 
-    return {
+    return success({
         "page": page,
         "limit": limit,
         "total": total,
         "pages": (total + limit - 1) // limit,
-        "items": products,
-    }
+        "items": [ProductOut.from_orm(p) for p in products],
+    })
 
-# 🟢 Get product detail
+
+# 🟢 DETAIL
 @router.get("/{product_id}", response_model=SuccessResponse)
 def get_product(product_id: UUID, db: Session = Depends(get_db)):
     product = db.query(Product).filter(Product.id == product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
-    return product
+    return success(ProductOut.from_orm(product))
 
-# 🔒 Create new product (admin only)
+
+# 🔒 CREATE
 @router.post("/", response_model=SuccessResponse)
 def create_product(
-    payload: ProductCreate,
+    product: ProductCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("admin"))
 ):
-    product = Product(
-        name=payload.name,
-        category=payload.category,
-        description=payload.description,
-        images=payload.images,
-        stock=payload.stock,
-        price=payload.price,
-        discount=payload.discount,
-        status=payload.status,
-        created_by_id=current_user.id,
-    )
-    db.add(product)
+    new_product = Product(**product.dict())
+    db.add(new_product)
     db.commit()
-    db.refresh(product)
-    return product
+    db.refresh(new_product)
+    return success(new_product)
 
-# 🔒 Update product (admin only)
-@router.put("/{product_id}", response_model=ProductOut)
+
+# 🔒 UPDATE
+@router.put("/{product_id}", response_model=SuccessResponse)
 def update_product(
     product_id: UUID,
     payload: ProductUpdate,
@@ -131,10 +107,11 @@ def update_product(
 
     db.commit()
     db.refresh(product)
-    return product
+    return success(product)
 
-# 🔒 Delete product (admin only)
-@router.delete("/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
+
+# 🔒 DELETE
+@router.delete("/{product_id}", response_model=SuccessResponse)
 def delete_product(
     product_id: UUID,
     db: Session = Depends(get_db),
@@ -144,20 +121,21 @@ def delete_product(
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
-    # Hapus semua file fisik milik produk
+    # Hapus semua file gambar produk (jika ada)
     if product.images:
         for image_url in product.images:
             filename = os.path.basename(image_url)
             file_path = os.path.join(UPLOAD_DIR, filename)
             delete_file_safe(file_path, UPLOAD_DIR)
 
-
     db.delete(product)
     db.commit()
-    return None
+
+    return success({"deleted_id": str(product_id)})
 
 
-@router.post("/{product_id}/images")
+# 🔒 UPLOAD IMAGE
+@router.post("/{product_id}/images", response_model=SuccessResponse)
 async def upload_product_images(
     product_id: UUID,
     files: List[UploadFile] = File(...),
@@ -182,9 +160,11 @@ async def upload_product_images(
     product.images = (product.images or []) + urls
     db.commit()
     db.refresh(product)
-    return {"message": "Images attached", "images": product.images}
+    return success({"images": product.images})
 
-@router.delete("/{product_id}/images")
+
+# 🔒 DELETE IMAGE
+@router.delete("/{product_id}/images", response_model=SuccessResponse)
 def delete_product_image(
     product_id: UUID,
     image_url: str,
@@ -198,14 +178,12 @@ def delete_product_image(
     if not product.images or image_url not in product.images:
         raise HTTPException(status_code=404, detail="Image not found in product")
 
-    # Hapus URL dari database
     product.images = [img for img in product.images if img != image_url]
     db.commit()
     db.refresh(product)
 
-    # Hapus file fisik secara aman
     filename = os.path.basename(image_url)
     file_path = os.path.join(UPLOAD_DIR, filename)
     delete_file_safe(file_path, UPLOAD_DIR)
 
-    return {"message": f"Deleted image {filename}", "remaining_images": product.images}
+    return success({"remaining_images": product.images})

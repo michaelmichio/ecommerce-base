@@ -23,8 +23,10 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL}
       CORS_ORIGINS: ${CORS_ORIGINS}
+      APP_ENV: ${APP_ENV}
     volumes:
       - ./backend/app:/app/app  # hot reload
+      - ./backend/logs:/app/logs
     ports:
       - "${BACKEND_PORT}:8000"
     depends_on:
