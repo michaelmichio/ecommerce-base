@@ -11,6 +11,7 @@ from app.core.dependencies import get_current_user
 from app.core.rbac import require_role
 from app.models.user import User
 from app.api.routes.upload import UPLOAD_DIR
+from app.core.utils import delete_file_safe
 
 router = APIRouter(prefix="/products", tags=["products"])
 
@@ -86,12 +87,7 @@ def delete_product(
         for image_url in product.images:
             filename = os.path.basename(image_url)
             file_path = os.path.join(UPLOAD_DIR, filename)
-            if os.path.exists(file_path):
-                # ✅ gunakan validasi path aman di sini juga
-                file_path = os.path.abspath(file_path)
-                if file_path.startswith(UPLOAD_DIR) and os.path.exists(file_path):
-                    print(f"Deleting file: {file_path}")
-                    os.remove(file_path)
+            delete_file_safe(file_path, UPLOAD_DIR)
 
 
     db.delete(product)
@@ -148,12 +144,6 @@ def delete_product_image(
     # Hapus file fisik secara aman
     filename = os.path.basename(image_url)
     file_path = os.path.join(UPLOAD_DIR, filename)
-    if os.path.exists(file_path):
-        # ✅ pastikan path aman sebelum hapus
-        file_path = os.path.abspath(file_path)
-        if file_path.startswith(UPLOAD_DIR) and os.path.exists(file_path):
-            print(f"Deleting file: {file_path}")
-            os.remove(file_path)
-
+    delete_file_safe(file_path, UPLOAD_DIR)
 
     return {"message": f"Deleted image {filename}", "remaining_images": product.images}
