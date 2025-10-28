@@ -1,11 +1,20 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
+from sqlalchemy.orm import Session
+from app.core.database import SessionLocal, Base, engine
+from app.core.config import get_settings
 from fastapi.middleware.cors import CORSMiddleware
-import os
+from app.api.routes import auth
 
-app = FastAPI(title="Ecommerce API")
+settings = get_settings()
+Base.metadata.create_all(bind=engine)  # sementara, nanti diganti Alembic
 
-origins = [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]
-if origins:
+app = FastAPI(title=settings.PROJECT_NAME)
+
+app.include_router(auth.router)
+
+# CORS
+if settings.BACKEND_CORS_ORIGINS:
+    origins = [o.strip() for o in settings.BACKEND_CORS_ORIGINS.split(",")]
     app.add_middleware(
         CORSMiddleware,
         allow_origins=origins,
@@ -14,6 +23,14 @@ if origins:
         allow_headers=["*"],
     )
 
+# Dependency untuk session DB
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
 @app.get("/health")
-def health():
+def health(db: Session = Depends(get_db)):
     return {"status": "ok"}
