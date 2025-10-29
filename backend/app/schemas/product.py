@@ -22,18 +22,19 @@ class ProductUpdate(ProductBase):
 class ProductOut(BaseModel):
     id: UUID
     name: str
-    description: Optional[str]
     category: Optional[str]
+    description: Optional[str]
     price: float
-    stock: Optional[int]
+    stock: int
     discount: Optional[float]
-    status: Optional[str]
+    status: str
     images: Optional[List[str]]
     created_at: Optional[datetime]
     updated_at: Optional[datetime]
 
-    class Config:
-        from_attributes = True  # ✅ penting agar bisa from_orm(Product)
+    model_config = {
+        "from_attributes": True
+    }
 
 class ProductListResponse(BaseModel):
     page: int

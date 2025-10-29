@@ -1,0 +1,30 @@
+{
+  "name": "ecommerce-base",
+  "version": "1.0.0",
+  "description": "E-commerce backend (FastAPI + PostgreSQL) and frontend (Next.js) using Docker Compose.",
+  "scripts": {
+    "setup": "docker compose run --rm backend bash -c \"alembic -c app/alembic.ini upgrade head && python -m app.core.init_db\"",
+    "start": "docker compose up -d",
+    "stop": "docker compose down",
+    "restart": "docker compose down -v && docker compose up -d",
+    "reset": "docker compose down -v && docker compose build --no-cache && docker compose up -d && docker compose run --rm backend bash -c \"alembic -c app/alembic.ini upgrade head && python -m app.core.init_db\"",
+    "logs": "docker compose logs -f backend",
+    "logs:backend": "docker compose logs -f backend",
+    "logs:db": "docker compose logs -f db",
+    "logs:frontend": "docker compose logs -f frontend",
+    "backend:shell": "docker compose exec backend bash",
+    "db:shell": "docker compose exec db psql -U postgres -d postgres",
+
+    "build": "docker compose build --no-cache",
+    "clean": "docker system prune -af --volumes",
+
+    "alembic:revision:init": "docker compose exec backend alembic -c app/alembic.ini revision --autogenerate -m 'init models'",
+    "alembic:revision:add": "docker compose exec backend alembic -c app/alembic.ini revision --autogenerate -m 'add new model'",
+    "alembic:upgrade": "docker compose exec backend alembic -c app/alembic.ini upgrade head",
+    "alembic:downgrade": "docker compose exec backend alembic -c app/alembic.ini downgrade base",
+
+    "reset:db": "docker compose down -v && docker compose up -d db && sleep 5 && npm run alembic:upgrade && docker compose up -d backend frontend"
+  },
+  "author": "Your Name",
+  "license": "MIT"
+}
