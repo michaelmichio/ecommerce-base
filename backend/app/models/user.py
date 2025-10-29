@@ -13,6 +13,7 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
     role_id = Column(UUID(as_uuid=True), ForeignKey("roles.id"), nullable=True)
+
     role = relationship("Role", backref="users")
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
