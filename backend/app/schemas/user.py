@@ -13,5 +13,6 @@ class UserOut(UserBase):
     id: UUID
     created_at: datetime | None = None
 
-    class Config:
-        orm_mode = True
+    model_config = {
+        "from_attributes": True
+    }
