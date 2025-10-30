@@ -6,7 +6,7 @@ from app.core.database import get_db
 from app.models.user import User
 from app.core.security import verify_password, get_password_hash
 from app.schemas.response import SuccessResponse
-from app.schemas.user import UserCreate, UserOut  # pastikan schema ini ada
+from app.schemas.user import UserCreate, UserOut, LoginPayload  # pastikan schema ini ada
 from app.core.config import settings
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -50,7 +50,7 @@ def register_user(payload: UserCreate, db: Session = Depends(get_db)):
 # 🔑 LOGIN
 # ===========================================================
 @router.post("/login", response_model=SuccessResponse)
-def login(payload: dict, response: Response, db: Session = Depends(get_db)):
+def login(payload: LoginPayload, response: Response, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == payload["email"]).first()
 
     if not user or not verify_password(payload["password"], user.hashed_password):
