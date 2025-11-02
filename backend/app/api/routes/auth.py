@@ -51,15 +51,17 @@ def register_user(payload: UserCreate, db: Session = Depends(get_db)):
 # ===========================================================
 @router.post("/login", response_model=SuccessResponse)
 def login(payload: LoginPayload, response: Response, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == payload["email"]).first()
+    user = db.query(User).filter(User.email == payload.email).first()
 
-    if not user or not verify_password(payload["password"], user.hashed_password):
+    # (opsional) guard untuk bcrypt 72 bytes
+    if len(payload.password.encode("utf-8")) > 72:
+        raise HTTPException(status_code=400, detail="Password too long (max 72 bytes)")
+
+    if not user or not verify_password(payload.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    # pastikan role tidak None
     role_name = user.role.name if getattr(user, "role", None) else "user"
 
-    # JWT payload berisi role dan email
     access_token = create_token(
         {"sub": str(user.id), "email": user.email, "role": role_name},
         settings.ACCESS_SECRET,
@@ -72,17 +74,18 @@ def login(payload: LoginPayload, response: Response, db: Session = Depends(get_d
         timedelta(days=settings.REFRESH_EXPIRE_DAYS),
     )
 
-    # set refresh token cookie aman
+    # set refresh token via cookie httpOnly
     response.set_cookie(
         key="refresh_token",
         value=refresh_token,
         httponly=True,
-        secure=(settings.ENV == "production"),  # True saat production
+        secure=(settings.ENV == "production"),
         samesite="lax",
         path="/",
         max_age=settings.REFRESH_EXPIRE_DAYS * 86400,
     )
 
+    # ✅ konsisten dengan SuccessResponse
     return success({"access_token": access_token})
 
 
