@@ -23,7 +23,7 @@ function decodeJwt<T = any>(token: string): T | null {
 }
 
 /** 🧠 Middleware utama */
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
   const token = req.cookies.get("access_token")?.value ?? null;
   const rule = getAccessRule(pathname);
@@ -90,8 +90,8 @@ function logRequest(
       action === "ALLOW"
         ? "\x1b[92m"
         : action === "REDIRECT"
-        ? "\x1b[93m"
-        : "\x1b[91m";
+          ? "\x1b[93m"
+          : "\x1b[91m";
     console.log(
       `${color}[${action}]${COLORS.reset} ${path} (${reason}) | role=${
         role ?? "anon"
