@@ -187,12 +187,18 @@ Admin-only route:
 
 ## 📦 Production Build
 
-### Backend
+### Docker (Recommended)
+```bash
+npm run build
+npm run start
+```
+
+### Backend (Optional)
 ```bash
 docker compose -f docker-compose.prod.yml up --build
 ```
 
-### Frontend
+### Frontend (Optional)
 ```bash
 npm run build
 npm run start
