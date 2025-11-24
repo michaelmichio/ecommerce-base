@@ -3,43 +3,42 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import api from "@/lib/api";
-import { setAuthToken, clearAuth, getAuthToken } from "@/lib/authToken";
-import type { AuthTokens, Me } from "@/types/auth";
+import type { Me } from "@/types/auth";
 
+/* ========================================================================== */
+/* Login Hook (HttpOnly version)                                              */
+/* ========================================================================== */
 /**
- * 🔐 Login hook
+ * - Calls /auth/login with email/password
+ * - Backend sets HttpOnly cookies for tokens
+ * - We only invalidate "me" and let middleware + cookies handle the rest
  */
 export function useLogin() {
   const qc = useQueryClient();
-  const router = useRouter();
 
   return useMutation({
     mutationFn: async (payload: { email: string; password: string }) => {
-      const { data } = await api.post<{ success: boolean; data: AuthTokens }>(
+      const { data } = await api.post<{ success: boolean; data: any }>(
         "/auth/login",
         payload
       );
+
+      if (!data?.success) {
+        throw new Error("Login failed");
+      }
+
       return data.data;
     },
-    onSuccess: (tokens) => {
-      // ✅ Simpan token di localStorage dan cookie (melalui helper)
-      setAuthToken(tokens.access_token);
-
-      // ✅ Simpan cookie manual juga (bisa dibaca oleh middleware)
-      const isProd = typeof window !== "undefined" && window.location.protocol === "https:";
-      document.cookie = `access_token=${tokens.access_token}; Path=/; SameSite=Lax; ${
-        isProd ? "Secure" : ""
-      }`;
-
-      // ✅ Refresh data user (me)
+    onSuccess: () => {
+      // Refetch current user profile
       qc.invalidateQueries({ queryKey: ["me"] });
     },
   });
 }
 
-/**
- * 🧾 Register hook
- */
+/* ========================================================================== */
+/* Register Hook                                                              */
+/* ========================================================================== */
 export function useRegister(redirectTo: string = "/login") {
   const qc = useQueryClient();
   const router = useRouter();
@@ -50,7 +49,9 @@ export function useRegister(redirectTo: string = "/login") {
         "/auth/register",
         payload
       );
-      if (!data.success) throw new Error("Registration failed");
+      if (!data?.success) {
+        throw new Error("Registration failed");
+      }
       return data.data;
     },
     onSuccess: () => {
@@ -60,47 +61,51 @@ export function useRegister(redirectTo: string = "/login") {
   });
 }
 
+/* ========================================================================== */
+/* useMe() — Get Logged-in User Profile                                      */
+/* ========================================================================== */
 /**
- * 👤 Ambil profil user yang sedang login
+ * - Relies entirely on HttpOnly cookie to determine auth state.
+ * - If /users/me returns 401 → treat as "not logged in" and return null.
  */
 export function useMe() {
   return useQuery({
     queryKey: ["me"],
     queryFn: async () => {
-      const token = getAuthToken();
-      if (!token) return null; // belum login, hindari 401 spam
-
       try {
         const { data } = await api.get<{ success: boolean; data: Me }>(
           "/users/me"
         );
-        // pastikan ada data
         return data?.data ?? null;
       } catch (err: any) {
-        // 🚨 Jika 401 (token invalid / expired), hapus token biar middleware tahu
-        if (err.response?.status === 401) {
-          clearAuth();
-          document.cookie = "access_token=; Max-Age=0; path=/"; // hapus cookie
+        const status = err?.response?.status;
+        if (status === 401) {
+          // not logged in
           return null;
         }
-
-        // Error lain, misalnya network error
         console.error("❌ useMe() failed:", err);
         return null;
       }
     },
-    enabled: !!getAuthToken(),
     staleTime: 60_000,
     retry: false,
   });
 }
 
+/* ========================================================================== */
+/* logout() — Server-side logout via /auth/logout                            */
+/* ========================================================================== */
 /**
- * 🚪 Logout
+ * - Calls backend /auth/logout to clear cookies
+ * - Then hard-redirects to /login
  */
-export function logout() {
-  clearAuth();
-  document.cookie = "access_token=; Max-Age=0; path=/"; // ✅ hapus cookie
+export async function logout() {
+  try {
+    await api.post("/auth/logout");
+  } catch (e) {
+    console.error("Logout failed (ignored):", e);
+  }
+
   if (typeof window !== "undefined") {
     window.location.href = "/login";
   }

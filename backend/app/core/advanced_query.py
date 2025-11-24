@@ -1,45 +1,128 @@
-from sqlalchemy import asc, desc, or_, and_
-from sqlalchemy.orm import Query
-from app.models.product import Product
+"""
+Advanced dynamic query utilities for SQLAlchemy.
 
-def apply_filters(query: Query, filters):
+Includes:
+- Field-level filtering
+- Full-text multi-field search
+- Multi-column sorting
+- Security validation (prevents unsafe fields/operators)
+
+Generic version that works for any SQLAlchemy model.
+"""
+
+from sqlalchemy import asc, desc, or_
+from sqlalchemy.orm import Query
+from typing import List, Any, Sequence
+
+
+# ----------------------------------------------------------------------
+# 🛡️ Whitelist for safe operators
+# ----------------------------------------------------------------------
+
+SAFE_OPERATORS = {"eq", "like", "gt", "lt", "between"}
+
+
+# ----------------------------------------------------------------------
+# 🧹 Sanitization Helpers
+# ----------------------------------------------------------------------
+
+def sanitize_field(model, field: str):
+    """
+    Returns a SQLAlchemy Column if the field exists and is safe.
+    Prevents SQL injection via invalid attribute names.
+    """
+    if not field or field.startswith("_"):
+        return None
+
+    return getattr(model, field, None)
+
+
+def sanitize_value(value: Any):
+    """
+    Optional: normalize value types if needed.
+    Currently left simple; can be expanded for date/string/UUID parsing.
+    """
+    return value
+
+
+# ----------------------------------------------------------------------
+# 🔍 FILTERING
+# ----------------------------------------------------------------------
+
+def apply_filters(query: Query, filters: Sequence, model) -> Query:
+    """
+    Apply field-level filtering based on dynamic filter objects.
+    Each filter should include: { field, operator, value }
+
+    Example:
+        filters = [
+            { "field": "price", "operator": "gt", "value": 100 },
+            { "field": "category", "operator": "eq", "value": "Laptop" }
+        ]
+    """
     if not filters:
         return query
 
     for f in filters:
-        column = getattr(Product, f.field, None)
+        # Validate field
+        column = sanitize_field(model, getattr(f, "field", None))
         if not column:
+            continue  # skip invalid fields safely
+
+        # Validate operator
+        op = getattr(f, "operator", "").lower()
+        if op not in SAFE_OPERATORS:
             continue
 
-        op = f.operator.lower()
-        val = f.value
+        # Clean value
+        val = sanitize_value(getattr(f, "value", None))
 
+        # Apply filter
         if op == "eq":
             query = query.filter(column == val)
+
         elif op == "like":
             query = query.filter(column.ilike(f"%{val}%"))
+
         elif op == "gt":
             query = query.filter(column > val)
+
         elif op == "lt":
             query = query.filter(column < val)
-        elif op == "between" and isinstance(val, (list, tuple)) and len(val) == 2:
-            query = query.filter(column.between(val[0], val[1]))
+
+        elif op == "between":
+            if isinstance(val, (list, tuple)) and len(val) == 2:
+                query = query.filter(column.between(val[0], val[1]))
 
     return query
 
 
-def apply_search(query: Query, search):
+# ----------------------------------------------------------------------
+# 🔍 FULL-TEXT SEARCH
+# ----------------------------------------------------------------------
+
+def apply_search(query: Query, search, model) -> Query:
+    """
+    Apply multi-field search using `ilike`.
+    search.value = string
+    search.fields = ["name", "description"]
+    """
     if not search or not search.value:
         return query
 
     value = search.value
-    fields = search.fields or ["name", "description"]
+    fields = search.fields or []
+
     conditions = []
 
-    for f in fields:
-        column = getattr(Product, f, None)
+    for field in fields:
+        column = sanitize_field(model, field)
         if column is not None:
-            conditions.append(column.ilike(f"%{value}%"))
+            # Only allow ilike on string-compatible columns
+            try:
+                conditions.append(column.ilike(f"%{value}%"))
+            except Exception:
+                pass  # skip non-string columns safely
 
     if conditions:
         query = query.filter(or_(*conditions))
@@ -47,17 +130,35 @@ def apply_search(query: Query, search):
     return query
 
 
-def apply_sort(query: Query, sort):
+# ----------------------------------------------------------------------
+# 🔽 SORTING
+# ----------------------------------------------------------------------
+
+def apply_sort(query: Query, sort: Sequence, model) -> Query:
+    """
+    Apply multi-column sorting.
+    Each sort item should include: { field, direction }
+    direction = "asc" | "desc"
+    """
     if not sort:
-        return query.order_by(desc(Product.created_at))
+        return query  # let API specify default order
 
-    order_clauses = []
+    clauses = []
+
     for s in sort:
-        column = getattr(Product, s.field, None)
-        if column is not None:
-            order_clauses.append(asc(column) if s.direction == "asc" else desc(column))
+        field = getattr(s, "field", None)
+        direction = getattr(s, "direction", "asc")
 
-    if order_clauses:
-        query = query.order_by(*order_clauses)
+        column = sanitize_field(model, field)
+        if not column:
+            continue
+
+        if direction == "asc":
+            clauses.append(asc(column))
+        else:
+            clauses.append(desc(column))
+
+    if clauses:
+        query = query.order_by(*clauses)
 
     return query

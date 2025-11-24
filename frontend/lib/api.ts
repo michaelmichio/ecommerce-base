@@ -1,85 +1,123 @@
-import axios from "axios";
-import { clearAuth, getAuthToken, setAuthToken } from "./authToken";
+import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
+
+/* ========================================================================== */
+/* Axios Instance (withCredentials = true to send HttpOnly cookies)           */
+/* ========================================================================== */
 
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL,
-  withCredentials: true, // penting untuk kirim cookie refresh_token
+  withCredentials: true, // REQUIRED for HttpOnly cookie auth
 });
 
-// 🟢 Inject bearer token ke setiap request
-api.interceptors.request.use((config) => {
-  const token = getAuthToken();
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+/* ========================================================================== */
+/* Request Interceptor                                                         */
+/* ========================================================================== */
+/**
+ * For HttpOnly cookie authentication, NO Authorization header is needed.
+ * Cookies are automatically attached by the browser.
+ *
+ * So this interceptor simply returns the config unchanged.
+ */
+api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   return config;
 });
 
-// ===========================================================
-// 🔁 Auto Refresh Token jika dapat 401 dari server
-// ===========================================================
-let isRefreshing = false;
-let refreshSubscribers: ((token: string) => void)[] = [];
+/* ========================================================================== */
+/* Token Refresh Handling (401 → refresh flow)                                 */
+/* ========================================================================== */
 
-function subscribeTokenRefresh(cb: (token: string) => void) {
+type RefreshableConfig = InternalAxiosRequestConfig & { _retry?: boolean };
+
+let isRefreshing = false;
+let refreshSubscribers: Array<() => void> = [];
+
+/** Queue a request to wait for new token */
+function subscribeTokenRefresh(cb: () => void) {
   refreshSubscribers.push(cb);
 }
 
-function onRefreshed(token: string) {
-  refreshSubscribers.forEach((cb) => cb(token));
+/** Resolve all queued requests */
+function onRefreshed() {
+  refreshSubscribers.forEach((cb) => cb());
   refreshSubscribers = [];
 }
 
+/** Hard logout */
+function forceLogout() {
+  if (typeof window !== "undefined") {
+    window.location.href = "/login";
+  }
+}
+
+/* ========================================================================== */
+/* Response Interceptor                                                        */
+/* ========================================================================== */
+
 api.interceptors.response.use(
-  (res) => res,
-  async (error) => {
-    const originalRequest = error.config;
+  (response) => response,
 
-    // jika unauthorized dan belum dicoba refresh
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
+  async (error: AxiosError) => {
+    const originalRequest = error.config as RefreshableConfig | undefined;
 
-      if (isRefreshing) {
-        // 🚦 tunggu refresh token selesai
-        return new Promise((resolve) => {
-          subscribeTokenRefresh((token) => {
-            originalRequest.headers.Authorization = `Bearer ${token}`;
-            resolve(api(originalRequest));
-          });
-        });
-      }
+    if (!originalRequest) return Promise.reject(error);
 
-      isRefreshing = true;
-      try {
-        console.log("[API] 401 → refreshing token...");
+    const status = error.response?.status;
 
-        // 🧠 minta token baru ke backend
-        const { data } = await axios.post(
-          `${process.env.NEXT_PUBLIC_API_URL}/auth/refresh`,
-          {},
-          { withCredentials: true }
-        );
-
-        const newToken = data?.data?.access_token;
-        if (newToken) {
-          setAuthToken(newToken);
-          api.defaults.headers.Authorization = `Bearer ${newToken}`;
-          onRefreshed(newToken); // update semua request yang tertunda
-
-          console.log("[API] 🔄 Token refreshed successfully");
-
-          return api(originalRequest);
-        }
-      } catch (err) {
-        // ❌ refresh gagal → logout user
-        clearAuth();
-        if (typeof window !== "undefined") window.location.href = "/login";
-        return Promise.reject(err);
-      } finally {
-        isRefreshing = false;
-      }
+    // Only handle 401
+    if (status !== 401) {
+      return Promise.reject(error);
     }
 
-    // kalau bukan 401 → lempar error biasa
-    return Promise.reject(error);
+    const url = originalRequest.url || "";
+
+    // Never refresh for these endpoints
+    if (
+      url.includes("/auth/login") ||
+      url.includes("/auth/register") ||
+      url.includes("/auth/logout") ||
+      url.includes("/auth/refresh")
+    ) {
+      return Promise.reject(error);
+    }
+
+    // Prevent infinite retry loop
+    if (originalRequest._retry) {
+      forceLogout();
+      return Promise.reject(error);
+    }
+
+    originalRequest._retry = true;
+
+    /* ---------------- Wait if another refresh is in progress -------------- */
+    if (isRefreshing) {
+      return new Promise((resolve, reject) => {
+        subscribeTokenRefresh(() => {
+          api(originalRequest).then(resolve).catch(reject);
+        });
+      });
+    }
+
+    /* ---------------- Start refresh flow ---------------------------------- */
+    isRefreshing = true;
+
+    try {
+      await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/auth/refresh`,
+        {},
+        { withCredentials: true }
+      );
+
+      // Now cookies have the new access token
+      onRefreshed();
+
+      return api(originalRequest);
+    } catch (refreshErr) {
+      console.error("[API] Refresh failed:", refreshErr);
+      forceLogout();
+      return Promise.reject(refreshErr);
+    } finally {
+      isRefreshing = false;
+    }
   }
 );
 

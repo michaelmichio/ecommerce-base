@@ -9,12 +9,19 @@ class Product(Base):
     __tablename__ = "products"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
     name = Column(String(255), nullable=False)
     category = Column(String(100), nullable=False)
     description = Column(Text, nullable=True)
-    images = Column(ARRAY(String), nullable=True)
+
+    # ARRAY of image URLs
+    images = Column(ARRAY(String, dimensions=1), nullable=False, default=[])
+
     stock = Column(Integer, nullable=False, default=0)
+
+    # Use numeric precision for money handling
     price = Column(Numeric(10, 2), nullable=False)
+
     discount = Column(Float, default=0.0)
     status = Column(String(50), default="active")
 

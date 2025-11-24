@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Label } from "@/components/ui/label";
-import { AppIcon } from "../login/page";
+import AppIcon from "@/components/icons/AppIcon";
 
 const registerSchema = z.object({
   email: z.string().email("Email tidak valid"),

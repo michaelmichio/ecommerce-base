@@ -1,40 +1,56 @@
-# app/core/dependencies.py
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
-from app.core.jwt import verify_access_token
 from app.core.database import get_db
+from app.core.jwt import decode_access_token
 from app.models.user import User
-
-security = HTTPBearer()
 
 
 def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    request: Request,
     db: Session = Depends(get_db)
 ):
     """
-    Dependency untuk mengambil user yang sedang login.
-    Akan raise 401 jika token invalid, expired, atau user tidak ditemukan.
+    Get the currently authenticated user using HttpOnly cookie-based access token.
+
+    - Reads "access_token" from request.cookies (secure from JS)
+    - Decodes token using decode_access_token() from app.core.jwt
+    - Ensures token is valid, not expired, and type == "access"
+    - Loads user from database
+    - Returns user instance
     """
-    token = credentials.credentials
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
 
-    payload = verify_access_token(token)
+    token = request.cookies.get("access_token")
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+        )
+
+    # Decode access token
+    payload = decode_access_token(token)
     if not payload or "sub" not in payload:
-        raise credentials_exception
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+        )
 
+    # Load user from DB
     user_id = payload["sub"]
     user = db.query(User).filter(User.id == user_id).first()
 
     if not user:
-        raise credentials_exception
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+        )
 
-    # opsional: simpan role dari token ke objek user (jika mau dipakai langsung)
-    user.role_name = payload.get("role", getattr(user.role, "name", "user"))
+    # Attach token role (if present) for easy access
+    # Role may come from DB or token
+    payload_role = payload.get("role")
+
+    if hasattr(user.role, "name"):
+        user.role_name = user.role.name
+    else:
+        user.role_name = payload_role or user.role or "user"
 
     return user
