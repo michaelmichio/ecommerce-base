@@ -3,14 +3,26 @@
   "version": "1.0.0",
   "description": "E-commerce backend (FastAPI + PostgreSQL) and frontend (Next.js) using Docker Compose.",
   "scripts": {
-    "build": "bash scripts/build.sh",
-    "start": "bash scripts/start.sh",
+    "dev:build": "bash scripts/build.dev.sh",
+    "dev:start": "bash scripts/start.dev.sh",
+    "dev:down": "docker compose --profile dev down",
+    "dev:logs": "docker compose --profile dev logs -f",
+    "dev:logs:backend": "docker compose logs -f backend-dev",
+    "dev:logs:frontend": "docker compose logs -f frontend-dev",
+    "dev:logs:db": "docker compose logs -f db",
+
+    "prod:build": "bash scripts/build.prod.sh",
+    "prod:start": "bash scripts/start.prod.sh",
+    "prod:down": "docker compose --profile prod down",
+    "prod:logs": "docker compose --profile prod logs -f",
+    "prod:logs:backend": "docker compose logs -f backend-prod",
+    "prod:logs:frontend": "docker compose logs -f frontend-prod",
+    "prod:logs:db": "docker compose logs -f db",
+
     "stop": "docker compose down",
     "logs": "docker compose logs -f",
-    "logs:backend": "docker compose logs -f backend",
-    "logs:db": "docker compose logs -f db",
-    "logs:frontend": "docker compose logs -f frontend"
-    },
+    "clean": "docker system prune -af --volumes"
+  },
   "author": "Michael",
   "license": "MIT"
 }

@@ -1,0 +1,23 @@
+# ====================================
+# 📦 Dockerfile.dev — Development Mode
+# ====================================
+
+FROM node:20-alpine
+
+# Workdir untuk source code
+WORKDIR /app
+
+# Copy package manifests (agar layer cache efisien)
+COPY package*.json ./
+
+# Install dependencies
+RUN npm install
+
+# Copy seluruh source code (akan di-override oleh volume bind)
+COPY . .
+
+# Expose port dev Next.js
+EXPOSE 3000
+
+# Jalankan Next.js dev mode (Turbopack)
+CMD ["npm", "run", "dev"]

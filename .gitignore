@@ -1,1 +1,6 @@
 /backend/logs/*
+
+# .env*
+# /backend/.env*
+# /db/.env*
+# /frontend/.env*

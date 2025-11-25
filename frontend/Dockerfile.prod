@@ -1,0 +1,40 @@
+# ====================================
+# 📦 Dockerfile.prod — Production Mode
+# ====================================
+
+# ---------- Stage 1: Builder ----------
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Only copy manifests first (better caching)
+COPY package*.json ./
+
+# Install all dependencies (includes dev deps)
+RUN npm install
+
+# Copy whole project
+COPY . .
+
+# Build Next.js into .next folder
+RUN npm run build
+
+
+# ---------- Stage 2: Runner ----------
+FROM node:20-alpine AS runner
+
+WORKDIR /app
+
+# Install ONLY production dependencies
+COPY package*.json ./
+RUN npm install --omit=dev
+
+# Copy essential build files from builder
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/node_modules ./node_modules
+
+EXPOSE 3000
+ENV PORT=3000
+
+CMD ["npm", "start"]

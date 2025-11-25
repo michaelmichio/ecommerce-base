@@ -1,0 +1,29 @@
+# =========================================
+# 📦 Backend Dockerfile.dev (Development)
+# =========================================
+
+FROM python:3.12-slim
+
+# Prevent Python from writing pyc files & force instant logs
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+# System dependencies (for building some pip packages)
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies early for caching
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the rest of the backend source code
+COPY app ./app
+
+# Ensure uploads folder exists
+RUN mkdir -p /app/app/storage/uploads
+
+# Development mode → enable hot reload
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

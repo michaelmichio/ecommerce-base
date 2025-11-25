@@ -3,10 +3,10 @@
 set -e
 
 echo "⚙️  Building Docker images..."
-docker compose build
+docker compose --profile dev --build
 
 echo "🚀 Starting containers in background..."
-docker compose up -d
+docker compose --profile dev up -d
 
 echo "🐍 Running Alembic migrations inside backend container..."
 docker compose run --rm backend bash -c "
