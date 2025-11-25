@@ -1,6 +1,6 @@
 /backend/logs/*
 
-# .env*
-# /backend/.env*
-# /db/.env*
-# /frontend/.env*
+.env*
+/backend/.env*
+/db/.env*
+/frontend/.env*
