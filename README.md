@@ -1,149 +1,144 @@
-# 🛒 E-Commerce Base
+# 🛒 E-Commerce Base (FastAPI + Next.js 16)
 
-> A **production-grade full-stack boilerplate** built with  
-> **FastAPI (Python)** for the backend and **Next.js 16 (React + TypeScript)** for the frontend.  
-> Includes secure authentication with HttpOnly cookies, JWT access + refresh tokens, RBAC, file uploads, PostgreSQL, Alembic migrations, and a complete Docker Compose environment.
+A **production‑grade full‑stack boilerplate** using:
 
----
-
-## ✨ Features
-
-### 🧱 Backend (FastAPI)
-- 🔐 **Authentication**
-  - JWT Access Token (short-lived)
-  - Refresh Token (HttpOnly Cookie)
-  - Secure cookie-based session
-- 🛡 **RBAC (Role-Based Access Control)**
-  - Middleware-level & API-level authorization
-  - Admin-only endpoints
-- 📦 **Models Included**
-  - User  
-  - Role  
-  - Product (with images, CRUD, search)
-- 📂 **File Upload System**
-  - Secure image uploads
-  - Physical storage + public serving
-- 🧱 **Database**
-  - PostgreSQL  
-  - Alembic migrations  
-  - Auto-seeding for Roles & Admin/User accounts
-- 🧰 **Utilities**
-  - Structured error formatting (`SuccessResponse`, `ErrorResponse`)
-  - Logging middleware with rotation
-  - CORS support
-  - Global exception handlers
+- **FastAPI (Python 3.12)** — Backend  
+- **Next.js 16 (React + TypeScript)** — Frontend  
+- **PostgreSQL + Alembic** — Database & Migrations  
+- **Docker Compose (dev & prod profiles)** — Containerized environment  
+- **JWT Auth with HttpOnly Cookies**, RBAC, file uploads, API routing, etc.
 
 ---
 
-### 💻 Frontend (Next.js 16 + React)
-- 🔐 **Authentication System**
-  - Login with HttpOnly cookie session
-  - Auto-refresh token via API interceptor
-  - React Query integration
-  - `useLogin`, `useRegister`, `useMe`, `logout()`
-- 🛡 **Route Protection**
-  - Next.js Middleware for RBAC
-  - Automatic login redirect
-  - Safe `redirect` handling
-- 🎨 **UI Layer**
-  - Tailwind CSS
-  - Shadcn UI Components
-  - Minimalistic & clean defaults
-- 🛠 **Utilities**
-  - Axios API wrapper with auto-refresh logic
-  - Error toast handling (`sonner`)
-  - Typed API responses & schemas
+# 🚀 Features Overview
+
+## 🧱 Backend (FastAPI)
+- JWT Authentication (Access + Refresh)
+- HttpOnly secure session cookies
+- Role-Based Access Control (RBAC)
+- Global exception handlers
+- Structured success/error responses
+- Logging with file rotation
+- File uploads (local storage)
+- PostgreSQL + SQLAlchemy + Alembic migrations
+- Auto-seeding roles & admin user
+- Development & Production Dockerfile
 
 ---
 
-## 🏗 Project Structure (Simplified)
+## 💻 Frontend (Next.js 16)
+- Login using HttpOnly cookies (secure)
+- Auto token refresh (Axios Interceptor)
+- Global API wrapper
+- React Query integration
+- Tailwind CSS + Shadcn UI components
+- Middleware-based route protection
+- Fully typed API responses
+- Development & Production Dockerfile
+
+---
+
+# 📦 Project Structure
 
 ```
 ecommerce-base/
+│
 ├── backend/
 │   ├── app/
-│   │   ├── api/routes/
+│   │   ├── api/
 │   │   ├── core/
 │   │   ├── models/
 │   │   ├── schemas/
 │   │   ├── storage/uploads/
 │   │   └── main.py
-│   └── Dockerfile
+│   ├── Dockerfile.dev
+│   ├── Dockerfile.prod
+│   ├── requirements.txt
+│   └── .env / .env.prod
 │
 ├── frontend/
 │   ├── app/
 │   ├── components/
-│   ├── hooks/
 │   ├── lib/
-│   └── Dockerfile
+│   ├── Dockerfile.dev
+│   ├── Dockerfile.prod
+│   └── .env / .env.prod
 │
-├── docker-compose.yml
+├── docker-compose.yml   ← dev/prod profiles
 └── README.md
 ```
 
 ---
 
-## 🚀 Getting Started
+# ⚙️ Environment Setup
 
-### 1️⃣ Clone the Repository
-```bash
-git clone https://github.com/username/ecommerce-base.git
-cd ecommerce-base
+## 🌱 Backend Environment Files
+
+### `backend/.env` (Development)
 ```
+ENV=development
+PROJECT_NAME="Ecommerce API (Dev)"
+DATABASE_URL=postgresql://postgres:postgres@db:5432/ecommerce
 
----
-
-## 2️⃣ Environment Variables
-
-### **Backend (.env)**
-```
-APP_ENV=development
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=postgres
-POSTGRES_DB=postgres
-DATABASE_URL=postgresql+psycopg2://postgres:postgres@db:5432/postgres
-
-ACCESS_SECRET=your_access_secret
-REFRESH_SECRET=your_refresh_secret
+ACCESS_SECRET=dev-access-secret
+REFRESH_SECRET=dev-refresh-secret
 ACCESS_EXPIRE_MINUTES=30
 REFRESH_EXPIRE_DAYS=7
 
 BACKEND_CORS_ORIGINS=http://localhost:3000
-PROJECT_NAME=E-Commerce Base
 ```
 
-### **Frontend (.env.local)**
+### `backend/.env.prod` (Production)
+```
+ENV=production
+PROJECT_NAME="Ecommerce API (Prod)"
+DATABASE_URL=postgresql://postgres:postgres@db:5432/ecommerce
+
+ACCESS_SECRET=change-this-access-secret
+REFRESH_SECRET=change-this-refresh-secret
+ACCESS_EXPIRE_MINUTES=30
+REFRESH_EXPIRE_DAYS=7
+
+BACKEND_CORS_ORIGINS=https://yourdomain.com
+```
+
+---
+
+## 🎨 Frontend Environment Files
+
+### `frontend/.env` (Development)
 ```
 NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
----
-
-## 3️⃣ Install Dependencies
-
-### Backend
-```bash
-cd backend
-pip install -r requirements.txt
+### `frontend/.env.prod` (Production)
 ```
-
-### Frontend
-```bash
-cd frontend
-npm install
-```
-
-Or use the helper script:
-```bash
-npm run setup
+NEXT_PUBLIC_API_URL=https://yourdomain.com/api
 ```
 
 ---
 
-## 4️⃣ Start Development (Docker)
+# 🐳 Docker Compose (Profiles)
 
-```bash
-docker compose up --build
+This project uses **profiles**:
+
+| Mode | Command | Services |
+|------|---------|----------|
+| Development | `npm run dev` | db, backend-dev, frontend-dev |
+| Production | `npm run prod` | db, backend-prod, frontend-prod |
+
+---
+
+# ▶️ Start Development
+
+Build dev mode:
+
+```
+npm run dev:build
+```
+
+```
+npm run dev:start
 ```
 
 Services:
@@ -151,76 +146,102 @@ Services:
 - Frontend → http://localhost:3000  
 - PostgreSQL → port 5432  
 
+Stop dev mode:
+
+```
+npm run dev:down
+```
+
 ---
 
-## 5️⃣ Automatic Seeds
+# 🚀 Start Production
 
-Upon first backend startup, the system automatically seeds:
+Build prod mode:
 
-### Roles:
-- admin
-- user
+```
+npm run prod:build
+```
 
-### Default Users:
+```
+npm run prod:start
+```
+
+Deploy-ready Docker services.
+
+Stop production mode:
+
+```
+npm run prod:down
+```
+
+---
+
+# 🧩 Backend Local Development (Optional)
+
+```
+cd backend
+uvicorn app.main:app --reload
+```
+
+---
+
+# 🌐 Frontend Development (Optional)
+
+```
+cd frontend
+npm install
+npm run dev
+```
+
+---
+
+# 🔐 Authentication Flow
+
+1. User logs in → receives **HttpOnly refresh token**
+2. Access token (short-lived) returned in JSON
+3. Axios interceptor auto-refreshes token when expired
+4. Session stays secure using HttpOnly cookies
+5. RBAC applied via API + Middleware
+
+---
+
+# 🧪 Default Seeded Users
+
 | Email | Password | Role |
 |-------|----------|------|
 | admin@example.com | admin123 | admin |
-| user@example.com  | user123  | user  |
+| user@example.com | user123 | user |
 
 ---
 
-## 🧪 Testing Authentication
+# 📄 Scripts
 
-### Login
-```http
-POST /auth/login
+From root package.json:
+
 ```
-
-### Auto-refresh  
-Browser sends the HttpOnly `refresh_token` automatically.
-
-### Protected Route  
-Admin-only route:  
-`/products` (create/update/delete)
-
----
-
-## 📦 Production Build
-
-### Docker (Recommended)
-```bash
-npm run build
-npm run start
-```
-
-### Backend (Optional)
-```bash
-docker compose -f docker-compose.prod.yml up --build
-```
-
-### Frontend (Optional)
-```bash
-npm run build
-npm run start
+npm run dev:build
+npm run dev:start
+npm run dev:down
+npm run prod:build
+npm run prod:start
+npm run prod:down
+npm run logs
+npm run clean
 ```
 
 ---
 
-## 📄 License
-MIT — open for personal or commercial use.
+# 📜 License
+MIT License
 
 ---
 
-## ❤️ Contributing
-Feel free to open PRs and issues to improve this starter template.
+# ⭐ Notes
+This boilerplate is designed for building:
+- E-Commerce platforms  
+- Admin dashboards  
+- Inventory systems  
+- SaaS web apps  
+- Company internal tools  
 
----
-
-## ⚡ Ready to Build Real E-Commerce?
-This boilerplate accelerates development for:
-
-- SaaS Dashboard  
-- Admin Panel  
-- B2B/B2C Web Store  
-- Company Internal Tools  
-- Inventory Management Systems  
+Feel free to customize and extend it!  
