@@ -137,6 +137,8 @@ Build dev mode:
 npm run dev:build
 ```
 
+Start dev mode:
+
 ```
 npm run dev:start
 ```
@@ -161,6 +163,8 @@ Build prod mode:
 ```
 npm run prod:build
 ```
+
+Start prod mode:
 
 ```
 npm run prod:start
