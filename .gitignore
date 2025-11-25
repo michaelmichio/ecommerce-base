@@ -4,3 +4,5 @@
 /backend/.env*
 /db/.env*
 /frontend/.env*
+
+/fix.sh
