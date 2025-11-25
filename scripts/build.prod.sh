@@ -3,13 +3,13 @@
 set -e
 
 echo "⚙️  Building Docker images..."
-docker compose --profile prod --build
+docker compose --profile prod build
 
 echo "🚀 Starting containers in background..."
 docker compose --profile prod up -d
 
 echo "🐍 Running Alembic migrations inside backend container..."
-docker compose run --rm backend bash -c "
+docker compose run --rm backend-prod bash -c "
     echo '🔄 Removing old migration files...';
     rm -rf app/alembic/versions/*;
 

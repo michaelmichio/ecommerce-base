@@ -3,7 +3,7 @@
 set -e
 
 echo "🚀 Starting Docker containers..."
-docker compose --profile dev up --build
+docker compose --profile dev up -d
 
 echo "⏳ Checking backend availability..."
 until curl -s http://localhost:8000/docs >/dev/null; do
